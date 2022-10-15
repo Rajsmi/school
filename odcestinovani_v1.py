@@ -1,4 +1,4 @@
-def odcesti(text):
+def odcesti(text: str) -> str:
     word = ''
 
     for lett in text:
