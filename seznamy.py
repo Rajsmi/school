@@ -8,7 +8,7 @@ def seznam(n: int, m: int) -> list:
     return numbers
 
 
-def vycisti(l: list):
+def vycisti(l: list) -> list:
     unique = list()
     for num in l:
         if num not in unique: unique.append(num)
