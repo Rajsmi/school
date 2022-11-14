@@ -2,13 +2,13 @@ import random
 
 def seznam(n: int, m: int) -> list:
     numbers = list()
-    for num in range(n):
+    for _ in range(n):
         rand = random.randint(0, m)
         numbers.append(rand)
     return numbers
 
 
-def vycisti(l: list) -> list:
+def vycisti(l: list):
     unique = list()
     for num in l:
         if num not in unique: unique.append(num)
