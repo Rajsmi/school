@@ -30,12 +30,13 @@ class Square:
 class Battleship():
     last_selected = None
     def __init__(self, x, y, width, length, image_path):
-        image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
-        self.image = ImageTk.PhotoImage(image)
-        self.image_object = canvas.create_image(x * SIZE, y * SIZE, image=self.image, anchor="nw")
+        self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
+        self.tk_image = ImageTk.PhotoImage(self.image)
+        self.image_object = canvas.create_image(x * SIZE, y * SIZE, image=self.tk_image, anchor="nw")
 
-        self.x = x
-        self.y = y
+        self.x = x # unit format
+        self.y = y # unit format
+        self.last_coords = () # pixels format
         self.width = width - 1
         self.height = length - 1
         self.coords = []
@@ -52,8 +53,7 @@ class Battleship():
                 res = field[xbox][ybox].set_ship(self)
                 self.coords.append(res)
 
-        print(self.coords)
-
+        # colors rectangles directly next to ship
         for xbox in range(tl[0]-1, tr[0]+2):
             if xbox < 0 or xbox > FIELD-1: continue
             for ybox in range(tl[1]-1, bl[1] + 2):
@@ -61,11 +61,45 @@ class Battleship():
                 if [xbox, ybox] in self.coords: continue
                 field[xbox][ybox].zone_color()
 
-    def move(self, nx, ny):
-        nx = nx * SIZE
-        ny = ny * SIZE
-        print(nx, ny)
-        canvas.coords(self.image_object, nx, ny)
+        canvas.tag_bind(self.image_object, "<B1-Motion>", self.grab)
+        canvas.tag_bind(self.image_object, "<ButtonRelease-1>", self.move)
+        canvas.tag_bind(self.image_object, "<Button-1>", self.rotate)
+
+
+    def grab(self, e):
+        # checks if cursor/grabing is within the field
+        nx = max(0, min(e.x//SIZE, FIELD - 1))
+        ny = max(0, min(e.y//SIZE, FIELD - 1))
+        nx, ny = nx*SIZE, ny*SIZE
+
+        # if it is first move of new click&move
+        if not self.last_coords:
+            self.last_coords = (nx, ny)
+            return
+
+        x = self.last_coords[0]
+        y = self.last_coords[1]
+
+        # delta x/y - counts shift in pixels
+        dx = nx - x
+        dy = ny - y
+
+        # if the image was shifted
+        if dx != 0 or dy != 0:
+            self.x = ((self.x*SIZE) + dx)//SIZE
+            self.y = ((self.y*SIZE) + dy)//SIZE
+            self.last_coords = (nx, ny) # updates last coordinates
+
+        # change position of image
+        canvas.coords(self.image_object, self.x*SIZE, self.y*SIZE)
+
+    def move(self, e):
+        self.last_coords = ()
+
+    def rotate(self, e):
+        rimg = self.image.rotate(5)
+        tk_rimg = ImageTk.PhotoImage(rimg)
+        canvas.itemconfig(self.image_object, image=tk_rimg)
 
 window = Tk()
 canvas = Canvas(width=FIELD*SIZE+1, height=FIELD*SIZE+1, borderwidth=0, highlightthickness=0)
@@ -80,25 +114,12 @@ for i in range(FIELD):
 
 
 ship0 = Battleship(1, 10, 2, 5, f'ship0.png')
-ship1 = Battleship(3, 0, 1, 6, f'ship1.png')
+ship1 = Battleship(0, 0, 1, 6, f'ship1.png')
 ship2 = Battleship(5, 0, 1, 5, f'ship2.png')
 ship3 = Battleship(7, 0, 1, 4, f'ship3.png')
 ship4 = Battleship(14, 2, 1, 4, f'ship4.png')
 ship5 = Battleship(12, 10, 1, 3, f'ship5.png')
 
-def drag(e):
-    x = e.x // SIZE
-    y = e.y // SIZE
-
-    x = max(0, min(x, FIELD - 1))
-    y = max(0, min(y, FIELD - 1))
-
-
-    ship = field[x][y].ship
-    if ship:
-        ship.move(x, y)
-
-window.bind("<B1-Motion>", drag)
 
 window.mainloop()
 
