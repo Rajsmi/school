@@ -1,3 +1,5 @@
+import threading
+import time
 from tkinter import Tk, Canvas, Label
 from PIL import ImageTk, Image
 
@@ -8,44 +10,57 @@ class Square:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.ship = None
-        self.in_zone_ships = []
+        self.ship = None # original ship on the square
+        self.ship_all_ships = [] # list of all ships on the square
+        self.zone_all_ships = [] # list of ships' zones on the square
 
         self.square = canvas.create_rectangle(x*SIZE, y*SIZE, (x+1)*SIZE, (y+1)*SIZE, fill="white",
                                               width=1, dash=(1, 3))
         canvas.create_text(x*SIZE+25, y*SIZE+25, text=f'{self.x}, {self.y}', anchor="center", font=10)
 
+    def set_color(self, color):
+        canvas.itemconfig(self.square, fill=color)
+
     def set_ship(self, ship):
-        if self.ship: return None
-        canvas.itemconfig(self.square, fill="black")
-        self.ship = ship
+        if not self.ship:
+            self.ship = ship
+            self.ship_all_ships.insert(0, ship)
+            self.set_color('black')
+        else:
+            self.ship_all_ships.append(ship)
         return [self.x, self.y]
 
     def set_zone(self, ship):
         if not self.ship:
-            canvas.itemconfig(self.square, fill="grey")
-        self.in_zone_ships.append(ship)
+            self.set_color('grey')
+        self.zone_all_ships.append(ship)
         return [self.x, self.y]
 
+
     def set_restricted(self):
-        canvas.itemconfig(self.square, fill="red")
-        print('restricted')
+        self.set_color('red')
 
     def check_restricted(self):
-        print(self.ship, self.in_zone_ships)
-        if self.ship and self.in_zone_ships:
-            print('TRUE')
-            return True
+        if self.ship and (self.zone_all_ships or len(self.ship_all_ships) > 1):
+            return True # True means square is restricted
+        return False
 
 
     def set_blank(self, ship):
-        if self.ship:
-            self.ship = None
+        if ship in self.ship_all_ships:
+            if ship == self.ship: self.ship = None
+            self.ship_all_ships.remove(ship)
+            if self.ship_all_ships: self.ship = self.ship_all_ships[0]
         else:
-            self.in_zone_ships.remove(ship)
+            self.zone_all_ships.remove(ship)
 
-        if not self.in_zone_ships:
-            canvas.itemconfig(self.square, fill="white")
+
+        if self.ship_all_ships:
+            self.set_color('black')
+        elif self.zone_all_ships:
+            self.set_color('grey')
+        else:
+            self.set_color('white')
 
 
 
@@ -55,6 +70,7 @@ class Battleship():
         self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
         self.image_object = canvas.create_image(x * SIZE, y * SIZE, image=None, anchor="nw")
         self.set_image(self.image)
+        self.image_path = image_path
 
         self.x = x # unit format
         self.y = y # unit format
@@ -64,6 +80,8 @@ class Battleship():
         self.width = width - 1
         self.height = length - 1
         self.is_horizontal = False
+        self.in_restricted_pos = False
+        self.disabled = False
         self.ship_coords = [] # coords of squares directly under ship
         self.zone_coords = [] # coords directly in area next to ship
 
@@ -79,11 +97,12 @@ class Battleship():
         canvas.itemconfig(self.image_object, image=self.tk_image)
 
     def set_area(self, width, height):
+
         # coords of image
-        tl = [int(coord / SIZE) for coord in canvas.coords(self.image_object)]
-        tr = [tl[0] + width, tl[1]]
-        bl = [tl[0], tl[1] + height]
-        br = [tl[0] + width, tl[1] + height]
+        tl = [int(coord / SIZE) for coord in canvas.coords(self.image_object)] # top left
+        tr = [tl[0] + width, tl[1]] # top right
+        bl = [tl[0], tl[1] + height] # bottom left
+        br = [tl[0] + width, tl[1] + height] # bottom right
 
         for box in self.ship_coords + self.zone_coords:
             field[box[0]][box[1]].set_blank(self)
@@ -94,24 +113,29 @@ class Battleship():
         for xbox in range(tl[0], tr[0] + 1):
             for ybox in range(tl[1], bl[1] + 1):
                 res = field[xbox][ybox].set_ship(self)
-                if res: self.ship_coords.append(res)
+                self.ship_coords.append(res)
 
         # colors, sets rectangles directly next to ship
         for xbox in range(tl[0] - 1, tr[0] + 2):
-            if xbox < 0 or xbox > FIELD - 1: continue
+            if xbox < 0 or xbox > FIELD - 1: continue # if box is out of field on x axis
             for ybox in range(tl[1] - 1, bl[1] + 2):
-                if ybox < 0 or ybox > FIELD - 1: continue
+                if ybox < 0 or ybox > FIELD - 1: continue # if box is out of field on y axis
                 if [xbox, ybox] in self.ship_coords: continue
                 res = field[xbox][ybox].set_zone(self)
-                if res: self.zone_coords.append(res)
+                self.zone_coords.append(res)
 
-        for box in self.zone_coords:
+        # colors, sets zone rectangles in different color, if ship is in restricted position
+        for box in self.zone_coords + self.ship_coords:
             if field[box[0]][box[1]].check_restricted():
                 for coord in self.zone_coords:
                     field[coord[0]][coord[1]].set_restricted()
+                self.in_restricted_pos = True
                 break
+            self.in_restricted_pos = False
 
-    def count_area(self, x, y, current_x, current_y):
+
+
+    def count_area(self, x, y, current_x=None, current_y=None):
         """Count cursor accessible area depending on given parameters and ship width/height
 
         :param x: origin cursor x position
@@ -120,42 +144,69 @@ class Battleship():
         :param current_y: current cursor y position
         :return: tuple(x pos, y pos) | same or borderline coordinates
         """
+        if current_x is None: current_x = x
+        if current_y is None: current_y = y
+
         # checks if cursor/grabbing is within the field
         field_x = [0, 0]
         field_y = [0, 0]
 
+        x = x//SIZE
+        y = y//SIZE
         for coord in self.ship_coords:
-            if coord[0] < x // SIZE: field_x[0] += 1
-            if coord[0] > x // SIZE: field_x[1] -= 1
-            if coord[1] < y // SIZE: field_y[0] += 1
-            if coord[1] > y // SIZE: field_y[1] -= 1
+            if coord[0] < x and coord[1] == y: field_x[0] += 1
+            if coord[0] > x and coord[1] == y: field_x[1] -= 1
+            if coord[1] < y and coord[0] == x: field_y[0] += 1
+            if coord[1] > y and coord[0] == x: field_y[1] -= 1
 
         nx = max(0 + field_x[0], min(current_x // SIZE, FIELD - 1 + field_x[1]))
         ny = max(0 + field_y[0], min(current_y // SIZE, FIELD - 1 + field_y[1]))
         nx, ny = nx * SIZE, ny * SIZE
         return nx, ny
 
+    def restricted_animation(self):
+        pass
+
     def rotate(self, e):
-        x = e.x//SIZE
-        y = e.y//SIZE
+
+        if self.disabled: return
+
+
         angle = -90 if self.is_horizontal else 90
         self.is_horizontal = not self.is_horizontal
         self.width, self.height = self.height, self.width
 
+        def call_set_area(width, height):
+            self.set_area(width, height)
+            self.disabled = False
+
         # TODO: Přidat nemožnost rotace v případě rotace u okraje
+        # if rotation will exceed field
+        if self.abs_grab_coords[0] + self.width > FIELD-1 or self.abs_grab_coords[1] + self.height > FIELD-1:
+            self.is_horizontal = not self.is_horizontal
+            self.width, self.height = self.height, self.width
+            self.disabled = True
+
+            [field[coord[0]][coord[1]].set_restricted() for coord in self.zone_coords]
+            canvas.after(500, call_set_area, self.width, self.height)
+            return
+
+
+
+        # TODO: Nastavit self.is_restricted vždy, když tomu tak bude
 
         rimg = self.image.rotate(angle, expand=True) # center=(x, y)
         self.set_image(rimg)
 
-
-
-
         self.set_area(self.width, self.height)  # height and width are changed because of different position
+        # TODO: když disabled, nelze s lodí manipulovat
 
     def grab(self, e):
+
+
         # if it is first move of new click&move
         if not self.rel_grab_coords:
-            nx, ny = self.count_area(e.x, e.y, e.x, e.y)
+            nx, ny = self.count_area(e.x, e.y)
             self.rel_grab_coords = (nx, ny)
             return
 
@@ -182,16 +233,28 @@ class Battleship():
             # update last absolute coordinates (counted from "head" of image)
             self.abs_grab_coords = (upx, upy)
 
+        print(upx, upy)
+        print(nx//SIZE, ny//SIZE)
+        print()
         # change position of image
+        if self.disabled: return
         canvas.coords(self.image_object, upx*SIZE, upy*SIZE)
         self.set_area(self.width, self.height)
 
 
     def move(self, e):
-        self.rel_grab_coords = ()
-        # canvas.coords(self.image_object, self.x*SIZE, self.y*SIZE)
+        if self.disabled: return
 
-        # TODO: Uložit finální self.x a self.y
+        self.rel_grab_coords = ()
+
+        if self.in_restricted_pos:
+            self.in_restricted_pos = False
+            canvas.coords(self.image_object, self.x*SIZE, self.y*SIZE)
+            self.set_area(self.width, self.height)
+            self.abs_grab_coords = (self.x, self.y)
+        else:
+            self.x, self.y = self.abs_grab_coords
+
 
 
 
