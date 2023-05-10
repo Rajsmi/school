@@ -1,5 +1,3 @@
-import threading
-import time
 from tkinter import Tk, Canvas, Label
 from PIL import ImageTk, Image
 
@@ -15,8 +13,8 @@ class Square:
         self.zone_all_ships = [] # list of ships' zones on the square
 
         self.square = canvas.create_rectangle(x*SIZE, y*SIZE, (x+1)*SIZE, (y+1)*SIZE, fill="white",
-                                              width=1, dash=(1, 3))
-        canvas.create_text(x*SIZE+25, y*SIZE+25, text=f'{self.x}, {self.y}', anchor="center", font=10)
+                                              width=2, outline="#9eeb47")
+        # canvas.create_text(x*SIZE+25, y*SIZE+25, text=f'{self.x}, {self.y}', anchor="center", font=10)
 
     def set_color(self, color):
         canvas.itemconfig(self.square, fill=color)
@@ -63,25 +61,20 @@ class Square:
             self.set_color('white')
 
 
-
 class Battleship():
-    last_selected = None
     def __init__(self, x, y, width, length, image_path):
         self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
         self.image_object = canvas.create_image(x * SIZE, y * SIZE, image=None, anchor="nw")
         self.set_image(self.image)
-        self.image_path = image_path
 
         self.x = x # unit format
         self.y = y # unit format
         self.rel_grab_coords = () # pixels format
         self.abs_grab_coords = (x, y)
-        # self.moves_coords = [(x, y)]
         self.width = width - 1
         self.height = length - 1
         self.is_horizontal = False
         self.in_restricted_pos = False
-        self.disabled = False
         self.ship_coords = [] # coords of squares directly under ship
         self.zone_coords = [] # coords directly in area next to ship
 
@@ -89,7 +82,7 @@ class Battleship():
 
         canvas.tag_bind(self.image_object, "<B1-Motion>", self.grab)
         canvas.tag_bind(self.image_object, "<ButtonRelease-1>", self.move)
-        canvas.tag_bind(self.image_object, "<Button-3>", self.rotate)
+        canvas.tag_bind(self.image_object, "<Double 1>", self.rotate)
 
     def set_image(self, image):
         self.image = image
@@ -153,56 +146,48 @@ class Battleship():
 
         x = x//SIZE
         y = y//SIZE
+        current_x //= SIZE
+        current_y //= SIZE
+
+
         for coord in self.ship_coords:
             if coord[0] < x and coord[1] == y: field_x[0] += 1
             if coord[0] > x and coord[1] == y: field_x[1] -= 1
             if coord[1] < y and coord[0] == x: field_y[0] += 1
             if coord[1] > y and coord[0] == x: field_y[1] -= 1
 
-        nx = max(0 + field_x[0], min(current_x // SIZE, FIELD - 1 + field_x[1]))
-        ny = max(0 + field_y[0], min(current_y // SIZE, FIELD - 1 + field_y[1]))
+        nx = max(0 + field_x[0], min(current_x, FIELD - 1 + field_x[1]))
+        ny = max(0 + field_y[0], min(current_y, FIELD - 1 + field_y[1]))
         nx, ny = nx * SIZE, ny * SIZE
         return nx, ny
 
-    def restricted_animation(self):
-        pass
 
     def rotate(self, e):
-
-        if self.disabled: return
-
-
-        angle = -90 if self.is_horizontal else 90
-        self.is_horizontal = not self.is_horizontal
-        self.width, self.height = self.height, self.width
-
-        def call_set_area(width, height):
-            self.set_area(width, height)
-            self.disabled = False
-
-        # TODO: Přidat nemožnost rotace v případě rotace u okraje
-        # if rotation will exceed field
-        if self.abs_grab_coords[0] + self.width > FIELD-1 or self.abs_grab_coords[1] + self.height > FIELD-1:
-            self.is_horizontal = not self.is_horizontal
-            self.width, self.height = self.height, self.width
-            self.disabled = True
-
-            [field[coord[0]][coord[1]].set_restricted() for coord in self.zone_coords]
-            canvas.after(500, call_set_area, self.width, self.height)
+        if self.rel_grab_coords:
             return
 
+        # rotate the ship 90 degrees clockwise or counterclockwise
+        if self.abs_grab_coords[0] + self.height + 1 <= FIELD and self.abs_grab_coords[1] + self.width + 1 <= FIELD:
+            self.is_horizontal = not self.is_horizontal
+            self.width, self.height = self.height, self.width
+            self.set_image(self.image.rotate(-270 if self.is_horizontal else 270, expand=True))
+            self.set_area(self.width, self.height)
+
+            if not self.in_restricted_pos:
+                return
+            else:
+                self.is_horizontal = not self.is_horizontal
+                self.width, self.height = self.height, self.width
+                self.set_image(self.image.rotate(-270 if self.is_horizontal else 270, expand=True))
+                self.set_area(self.width, self.height)
 
 
-        # TODO: Nastavit self.is_restricted vždy, když tomu tak bude
+        for coord in self.zone_coords:
+            field[coord[0]][coord[1]].set_restricted()
+        canvas.after(250, self.set_area, self.width, self.height)
 
-        rimg = self.image.rotate(angle, expand=True) # center=(x, y)
-        self.set_image(rimg)
-
-        self.set_area(self.width, self.height)  # height and width are changed because of different position
-        # TODO: když disabled, nelze s lodí manipulovat
 
     def grab(self, e):
-
 
         # if it is first move of new click&move
         if not self.rel_grab_coords:
@@ -233,18 +218,12 @@ class Battleship():
             # update last absolute coordinates (counted from "head" of image)
             self.abs_grab_coords = (upx, upy)
 
-        print(upx, upy)
-        print(nx//SIZE, ny//SIZE)
-        print()
-        # change position of image
-        if self.disabled: return
+
         canvas.coords(self.image_object, upx*SIZE, upy*SIZE)
         self.set_area(self.width, self.height)
 
 
     def move(self, e):
-        if self.disabled: return
-
         self.rel_grab_coords = ()
 
         if self.in_restricted_pos:
