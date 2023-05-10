@@ -1,8 +1,8 @@
 from tkinter import Tk, Canvas, Label
 from PIL import ImageTk, Image
 
-FIELD = 15 # 15
-SIZE = 50 # 50
+FIELD = 20 # 15
+SIZE = 35 # 50
 
 class Square:
     def __init__(self, x, y):
@@ -13,7 +13,7 @@ class Square:
         self.zone_all_ships = [] # list of ships' zones on the square
 
         self.square = canvas.create_rectangle(x*SIZE, y*SIZE, (x+1)*SIZE, (y+1)*SIZE, fill="white",
-                                              width=2, outline="#9eeb47")
+                                              width=1, outline="#9eeb47")
         # canvas.create_text(x*SIZE+25, y*SIZE+25, text=f'{self.x}, {self.y}', anchor="center", font=10)
 
     def set_color(self, color):
@@ -237,7 +237,6 @@ class Battleship():
 
 
 
-
 window = Tk()
 canvas = Canvas(width=FIELD*SIZE+1, height=FIELD*SIZE+1, borderwidth=0, highlightthickness=0)
 canvas.pack(expand=True)
@@ -248,6 +247,7 @@ for i in range(FIELD):
     field.append([])
     for j in range(FIELD):
         field[i].append(Square(i, j))
+
 
 
 # creating ships models
