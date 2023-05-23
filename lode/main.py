@@ -1,17 +1,10 @@
 from tkinter import Tk, Canvas, Label, Button
 from random import randint
-from configparser import ConfigParser as config
 from battleship import Battleship
 
-FIELD = 10 # 15
-SIZE = 50 # 50
 
-COLORS = {
-    "blank": "white",
-    "zone": "lightgrey",
-    "ship": "grey",
-    "restricted": "lightcoral"
-}
+
+
 
 class Square:
     def __init__(self, root, x, y):
