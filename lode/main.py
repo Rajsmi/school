@@ -1,10 +1,11 @@
 from tkinter import Tk, Canvas, Label, Button
 from random import randint
 from battleship import Battleship
+import read_settings as config
 
-
-
-
+SIZE = config.SIZE
+COLORS = config.COLORS
+FIELD = config.FIELD
 
 class Square:
     def __init__(self, root, x, y):
@@ -113,19 +114,19 @@ for i in range(FIELD):
 # creating ship models
 ships = [
     # Battleship(1, 4, 'ship1.png'),
-    Battleship(1, 4),
+    Battleship(game_field, 1, 4),
 
-    Battleship(1, 3, 'ship2.png'),
-    Battleship(1, 3, 'ship2.png'),
-    Battleship(1, 3, 'ship4.png'),
+    Battleship(game_field, 1, 3, 'ship2.png'),
+    Battleship(game_field, 1, 3, 'ship2.png'),
+    Battleship(game_field, 1, 3, 'ship4.png'),
 
-    Battleship(1, 2, 'ship3.png'),
-    Battleship(1, 2, 'ship3.png'),
+    Battleship(game_field, 1, 2, 'ship3.png'),
+    Battleship(game_field, 1, 2, 'ship3.png'),
 
-    Battleship(1, 1, 'ship5.png'),
-    Battleship(1, 1, 'ship5.png'),
-    Battleship(1, 1, 'ship5.png'),
-    Battleship(1, 1, 'ship5.png')
+    Battleship(game_field, 1, 1, 'ship5.png'),
+    Battleship(game_field, 1, 1, 'ship5.png'),
+    Battleship(game_field, 1, 1, 'ship5.png'),
+    Battleship(game_field, 1, 1, 'ship5.png')
 ]
 
 

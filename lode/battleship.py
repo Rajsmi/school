@@ -1,9 +1,14 @@
 from PIL import ImageTk, Image
+import read_settings as config
+
+SIZE = config.SIZE
+FIELD = config.FIELD
 
 class Battleship:
     last_selected = None
-    def __init__(self, width, length, image_path=None, x=0, y=0):
+    def __init__(self, root, width, length, image_path=None, x=0, y=0):
 
+        self.root = root
         self.x = x # unit format
         self.y = y # unit format
         self.image_path = image_path
@@ -28,11 +33,11 @@ class Battleship:
         # initializing image
         if image_path:
             self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
-            self.image_object = game_field.create_image(self.x * SIZE, self.y * SIZE, image=None, anchor="nw")
+            self.image_object = self.root.create_image(self.x * SIZE, self.y * SIZE, image=None, anchor="nw")
             self.watched_object()
             self.set_object(self.image)
         else:
-            self.rectangle_object = game_field.create_rectangle(self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE,
+            self.rectangle_object = self.root.create_rectangle(self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE,
                                                             (self.y+self.height+1)*SIZE, fill="grey", width=0)
             self.watched_object()
 
@@ -42,10 +47,10 @@ class Battleship:
 
         if not self.is_disabled:
             watched_object = self.watched_object()
-            game_field.tag_bind(watched_object, "<Button-1>", self.select)
-            game_field.tag_bind(watched_object, "<B1-Motion>", self.grab)
-            game_field.tag_bind(watched_object, "<ButtonRelease-1>", self.move)
-            game_field.tag_bind(watched_object, "<Double 1>", self.rotate)
+            self.root.tag_bind(watched_object, "<Button-1>", self.select)
+            self.root.tag_bind(watched_object, "<B1-Motion>", self.grab)
+            self.root.tag_bind(watched_object, "<ButtonRelease-1>", self.move)
+            self.root.tag_bind(watched_object, "<Double 1>", self.rotate)
 
 
     @classmethod
@@ -70,7 +75,7 @@ class Battleship:
                 object = object.rotate(-270 if self.is_horizontal else 270, expand=True)
             self.image = object
             self.tk_image = ImageTk.PhotoImage(self.image)
-            game_field.itemconfig(self.image_object, image=self.tk_image)
+            self.root.itemconfig(self.image_object, image=self.tk_image)
         elif self.watched_object_type == 'rectangle':
             if edit == 'rotate':
                 self.object_pos(self.watched_object(), self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE)
@@ -80,12 +85,12 @@ class Battleship:
     def object_pos(self, object, x=None, y=None, xr=None, yr=None):
         coords = None
         if self.watched_object_type == 'image':
-            coords = game_field.coords(object, x, y)
+            coords = self.root.coords(object, x, y)
         elif self.watched_object_type == 'rectangle':
             if all([x!=None, y!=None, xr!=None, yr!=None]):
-                coords = game_field.coords(object, x, y, xr, yr)
+                coords = self.root.coords(object, x, y, xr, yr)
             else:
-                coords = game_field.coords(object)
+                coords = self.root.coords(object)
         return coords
 
     def count_area(self, x, y, current_x=None, current_y=None):
@@ -200,7 +205,7 @@ class Battleship:
         if animation:
             for coord in self.zone_coords:
                 field[coord[0]][coord[1]].set_restricted()
-            game_field.after(250, self.set_area, self.width, self.height, coords)
+            self.root.after(250, self.set_area, self.width, self.height, coords)
         else:
             return False
 
