@@ -1,0 +1,31 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="1">
+            <item index="0" class="java.lang.String" itemvalue="telegram" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnreachableCodeInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="GuessTheNumber.sources.EndPage.sources" />
+          <option value="str.*" />
+          <option value="room.get_tscript" />
+          <option value="object.name" />
+          <option value="list.name" />
+          <option value="list.research" />
+          <option value="list.items" />
+          <option value="command.research" />
+          <option value="list.aliases" />
+          <option value="list.desc_id" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
