@@ -68,7 +68,7 @@ class Square:
 
 class Battleship:
     last_selected = None
-    def __init__(self, root, width, length, image_path=None, x=0, y=0):
+    def __init__(self, root, width, length, image_path=None, x=0, y=0, playable=True):
 
         self.root = root
         self.x = x # unit format
@@ -84,6 +84,7 @@ class Battleship:
         self.ship_coords = [] # coords of squares directly under ship
         self.zone_coords = [] # coords directly in area next to ship
 
+        self.playable = not playable
         self.image = None
         self.image_object = None
         self.rectangle_object = None
@@ -93,26 +94,27 @@ class Battleship:
             raise ValueError(f'Zadána špatná hodnota pozice nebo šířka/výška lodi.')
 
         # initializing image
-        # if image_path:
-            # self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
-            # self.image_object = self.root.create_image(self.x * SIZE, self.y * SIZE, image=None, anchor="nw")
-            # self.watched_object()
-            # self.set_object(self.image)
-        # else:
-            # self.rectangle_object = self.root.create_rectangle(self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE,
-            #                                                 (self.y+self.height+1)*SIZE, fill="grey", width=0)
-            # self.watched_object()
+        if self.playable:
+            if image_path:
+                self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
+                self.image_object = self.root.create_image(self.x * SIZE, self.y * SIZE, image=None, anchor="nw")
+                self.watched_object()
+                self.set_object(self.image)
+            else:
+                self.rectangle_object = self.root.create_rectangle(self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE,
+                                                                (self.y+self.height+1)*SIZE, fill="grey", width=0)
+                self.watched_object()
 
         # initializing coordinates of image/ship
         self.set_area(self.width, self.height)
 
 
-        # if not self.is_disabled:
-        #     watched_object = self.watched_object()
-        #     self.root.tag_bind(watched_object, "<Button-1>", self.select)
-        #     self.root.tag_bind(watched_object, "<B1-Motion>", self.grab)
-        #     self.root.tag_bind(watched_object, "<ButtonRelease-1>", self.move)
-        #     self.root.tag_bind(watched_object, "<Double 1>", self.rotate)
+        if not self.is_disabled and self.playable:
+            watched_object = self.watched_object()
+            self.root.tag_bind(watched_object, "<Button-1>", self.select)
+            self.root.tag_bind(watched_object, "<B1-Motion>", self.grab)
+            self.root.tag_bind(watched_object, "<ButtonRelease-1>", self.move)
+            self.root.tag_bind(watched_object, "<Double 1>", self.rotate)
 
 
     @classmethod
@@ -123,13 +125,16 @@ class Battleship:
             return False
         return True
 
-    # def watched_object(self):
-    #     if self.image_object or self.image_path:
-    #         self.watched_object_type = 'image'
-    #         return self.image_object
-    #     elif self.rectangle_object:
-    #         self.watched_object_type = 'rectangle'
-    #         return self.rectangle_object
+    def watched_object(self):
+        if not self.playable: return None
+
+        if self.image_object or self.image_path:
+            self.watched_object_type = 'image'
+            return self.image_object
+        elif self.rectangle_object:
+            self.watched_object_type = 'rectangle'
+            return self.rectangle_object
+
 
     def set_object(self, object, edit=None):
         if self.watched_object_type == 'image':
@@ -143,15 +148,19 @@ class Battleship:
                 self.object_pos(self.watched_object(), self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE)
 
     def object_pos(self, object, x=None, y=None, xr=None, yr=None):
-        # coords = None
-        # if self.watched_object_type == 'image':
-        #     coords = self.root.coords(object, x, y)
-        # elif self.watched_object_type == 'rectangle':
-        #     if all([x!=None, y!=None, xr!=None, yr!=None]):
-        #         coords = self.root.coords(object, x, y, xr, yr)
-        #     else:
-        #         coords = self.root.coords(object)
-        coords = [self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE]
+        coords = None
+        if not self.playable:
+            coords = [self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE]
+            return coords
+
+        if self.watched_object_type == 'image':
+            coords = self.root.coords(object, x, y)
+        elif self.watched_object_type == 'rectangle':
+            if all([x!=None, y!=None, xr!=None, yr!=None]):
+                coords = self.root.coords(object, x, y, xr, yr)
+            else:
+                coords = self.root.coords(object)
+
         return coords
 
     def count_area(self, x, y, current_x=None, current_y=None):
@@ -189,8 +198,7 @@ class Battleship:
         return nx, ny
 
     def set_area(self, width, height, coords:list[int, int]=None):
-        # if coords is None: coords = self.object_pos(self.watched_object())
-        if coords is None: coords = self.object_pos('')
+        if coords is None: coords = self.object_pos(self.watched_object())
 
         # coords of image
         tl = [int(coord / SIZE) for coord in coords] # top left
@@ -319,8 +327,9 @@ class Battleship:
         if self.in_restricted_pos:
             self.in_restricted_pos = False
 
-        # self.abs_grab_coords = (self.x, self.y)
-        # self.object_pos(self.watched_object(), self.x * SIZE, self.y * SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE)
+        if self.playable:
+            self.abs_grab_coords = (self.x, self.y)
+            self.object_pos(self.watched_object(), self.x * SIZE, self.y * SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE)
         self.set_area(self.width, self.height)
 
 
@@ -380,20 +389,20 @@ for i in range(FIELD):
 
 # creating ship models
 ships = [
-    Battleship(game_field, 1, 4, 'ship1.png'),
+    Battleship(game_field, 1, 4, 'ship1.png', playable=False),
     # Battleship(game_field, 1, 4),
 
-    Battleship(game_field, 1, 3, 'ship2.png'),
-    Battleship(game_field, 1, 3, 'ship2.png'),
-    Battleship(game_field, 1, 3, 'ship4.png'),
+    Battleship(game_field, 1, 3, 'ship2.png', playable=False),
+    Battleship(game_field, 1, 3, 'ship2.png', playable=False),
+    Battleship(game_field, 1, 3, 'ship4.png', playable=False),
 
-    Battleship(game_field, 1, 2, 'ship3.png'),
-    Battleship(game_field, 1, 2, 'ship3.png'),
+    Battleship(game_field, 1, 2, 'ship3.png', playable=False),
+    Battleship(game_field, 1, 2, 'ship3.png', playable=False),
 
-    Battleship(game_field, 1, 1, 'ship5.png'),
-    Battleship(game_field, 1, 1, 'ship5.png'),
-    Battleship(game_field, 1, 1, 'ship5.png'),
-    Battleship(game_field, 1, 1, 'ship5.png')
+    Battleship(game_field, 1, 1, 'ship5.png', playable=False),
+    Battleship(game_field, 1, 1, 'ship5.png', playable=False),
+    Battleship(game_field, 1, 1, 'ship5.png', playable=False),
+    Battleship(game_field, 1, 1, 'ship5.png', playable=False)
 ]
 
 

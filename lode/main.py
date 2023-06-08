@@ -7,6 +7,18 @@ from PIL import ImageTk, Image
 SIZE = int(config.SIZE)
 FIELD = int(config.FIELD)
 COLORS = config.COLORS
+SHIPS_DATA = [
+    (1, 4, 'ship1.png'),
+    (1, 3, 'ship2.png'),
+    (1, 3, 'ship2.png'),
+    (1, 3, 'ship4.png'),
+    (1, 2, 'ship3.png'),
+    (1, 2, 'ship3.png'),
+    (1, 1, 'ship5.png'),
+    (1, 1, 'ship5.png'),
+    (1, 1, 'ship5.png'),
+    (1, 1, 'ship5.png'),
+]
 
 class Square:
     def __init__(self, root, x, y):
@@ -68,9 +80,10 @@ class Square:
 
 class Battleship:
     last_selected = None
-    def __init__(self, root, width, length, image_path=None, x=0, y=0):
+    def __init__(self, root, field, width, length, image_path=None, x=0, y=0, playable=True, disabled=False):
 
         self.root = root
+        self.field = field
         self.x = x # unit format
         self.y = y # unit format
         self.image_path = image_path
@@ -80,10 +93,11 @@ class Battleship:
         self.height = length - 1
         self.is_horizontal = False
         self.in_restricted_pos = False
-        self.is_disabled = False
+        self.is_disabled = disabled
         self.ship_coords = [] # coords of squares directly under ship
         self.zone_coords = [] # coords directly in area next to ship
 
+        self.playable = playable
         self.image = None
         self.image_object = None
         self.rectangle_object = None
@@ -93,21 +107,22 @@ class Battleship:
             raise ValueError(f'Zadána špatná hodnota pozice nebo šířka/výška lodi.')
 
         # initializing image
-        if image_path:
-            self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
-            self.image_object = self.root.create_image(self.x * SIZE, self.y * SIZE, image=None, anchor="nw")
-            self.watched_object()
-            self.set_object(self.image)
-        else:
-            self.rectangle_object = self.root.create_rectangle(self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE,
-                                                            (self.y+self.height+1)*SIZE, fill="grey", width=0)
-            self.watched_object()
+        if self.playable:
+            if image_path:
+                self.image = Image.open(image_path).resize((int(SIZE * width), int(SIZE * length)))
+                self.image_object = self.root.create_image(self.x * SIZE, self.y * SIZE, image=None, anchor="nw")
+                self.watched_object()
+                self.set_object(self.image)
+            else:
+                self.rectangle_object = self.root.create_rectangle(self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE,
+                                                                (self.y+self.height+1)*SIZE, fill="grey", width=0)
+                self.watched_object()
 
         # initializing coordinates of image/ship
         self.set_area(self.width, self.height)
 
 
-        if not self.is_disabled:
+        if not self.is_disabled and self.playable:
             watched_object = self.watched_object()
             self.root.tag_bind(watched_object, "<Button-1>", self.select)
             self.root.tag_bind(watched_object, "<B1-Motion>", self.grab)
@@ -124,12 +139,15 @@ class Battleship:
         return True
 
     def watched_object(self):
+        if not self.playable: return None
+
         if self.image_object or self.image_path:
             self.watched_object_type = 'image'
             return self.image_object
         elif self.rectangle_object:
             self.watched_object_type = 'rectangle'
             return self.rectangle_object
+
 
     def set_object(self, object, edit=None):
         if self.watched_object_type == 'image':
@@ -144,6 +162,10 @@ class Battleship:
 
     def object_pos(self, object, x=None, y=None, xr=None, yr=None):
         coords = None
+        if not self.playable:
+            coords = [self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE]
+            return coords
+
         if self.watched_object_type == 'image':
             coords = self.root.coords(object, x, y)
         elif self.watched_object_type == 'rectangle':
@@ -151,6 +173,7 @@ class Battleship:
                 coords = self.root.coords(object, x, y, xr, yr)
             else:
                 coords = self.root.coords(object)
+
         return coords
 
     def count_area(self, x, y, current_x=None, current_y=None):
@@ -199,11 +222,11 @@ class Battleship:
         if Battleship.last_selected:
             last_selected = Battleship.last_selected
             for box in last_selected.ship_coords + last_selected.zone_coords:
-                res = field[box[0]][box[1]]
+                res = self.field[box[0]][box[1]]
                 res.set_blank_color()
 
         for box in self.ship_coords + self.zone_coords:
-            res = field[box[0]][box[1]]
+            res = self.field[box[0]][box[1]]
             res.set_blank(self)
             res.set_blank_color()
 
@@ -213,7 +236,7 @@ class Battleship:
         # colors, sets rectangles directly under ship
         for xbox in range(tl[0], tr[0] + 1):
             for ybox in range(tl[1], bl[1] + 1):
-                res = field[xbox][ybox]
+                res = self.field[xbox][ybox]
                 self.ship_coords.append(res.set_ship(self))
                 if Battleship.last_selected: res.set_ship_color()
 
@@ -223,15 +246,15 @@ class Battleship:
             for ybox in range(tl[1] - 1, bl[1] + 2):
                 if ybox < 0 or ybox > FIELD - 1: continue # if box is out of field on y axis
                 if [xbox, ybox] in self.ship_coords: continue
-                res = field[xbox][ybox]
+                res = self.field[xbox][ybox]
                 self.zone_coords.append(res.set_zone(self))
                 if Battleship.last_selected: res.set_zone_color()
 
         # colors, sets zone rectangles in different color, if ship is in restricted position
         for box in self.zone_coords + self.ship_coords:
-            if field[box[0]][box[1]].check_restricted():
+            if self.field[box[0]][box[1]].check_restricted():
                 for coord in self.zone_coords:
-                    field[coord[0]][coord[1]].set_restricted()
+                    self.field[coord[0]][coord[1]].set_restricted()
                 self.in_restricted_pos = True
                 break
             self.in_restricted_pos = False
@@ -263,7 +286,7 @@ class Battleship:
 
         if animation:
             for coord in self.zone_coords:
-                field[coord[0]][coord[1]].set_restricted()
+                self.field[coord[0]][coord[1]].set_restricted()
             self.root.after(250, self.set_area, self.width, self.height, coords)
         else:
             return False
@@ -306,33 +329,48 @@ class Battleship:
 
 
 
-    def move(self, e):
+    def move(self, e): #TODO: Do nové funkce change_pos
         self.rel_grab_coords = ()
 
         for box in self.zone_coords + self.ship_coords:
-            if field[box[0]][box[1]].check_restricted():
+            if self.field[box[0]][box[1]].check_restricted():
                 self.in_restricted_pos = True
                 break
 
         if self.in_restricted_pos:
             self.in_restricted_pos = False
 
-        self.abs_grab_coords = (self.x, self.y)
-        self.object_pos(self.watched_object(), self.x*SIZE, self.y*SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE)
+        if self.playable:
+            self.abs_grab_coords = (self.x, self.y)
+            self.object_pos(self.watched_object(), self.x * SIZE, self.y * SIZE, (self.x+self.width+1)*SIZE, (self.y+self.height+1)*SIZE)
         self.set_area(self.width, self.height)
 
 
 
 
-
 class Game():
-    def __init__(self, player_ships: list['Battleship']):
-        self.player_ships = player_ships
+    def __init__(self, ships_data:list[tuple]):
+        self.ships_data = ships_data
 
-        self.shuffle_button = Button(ships_panel, text='Shuffle', command=lambda: self.shuffle_ships(self.player_ships))
-        self.start_button = Button(ships_panel, text='Start', command=lambda: None)
+        self.ships_panel = Canvas(width=(FIELD * SIZE + 1) * .5, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
+        self.player_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
+        self.opponent_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
+        self.shuffle_button = Button(self.ships_panel, text='Automatické rozmístění', command=lambda: self.shuffle_ships(self.player_ships))
+        self.start_button = Button(self.ships_panel, text='Start', command=self.create_opponent_field)
+
+        self.opponent_panel.pack(expand=True, side="right")
+        self.ships_panel.pack(expand=True, side="right")
+        self.player_panel.pack(expand=True)
         self.shuffle_button.pack(expand=True)
         self.start_button.pack(expand=True)
+
+        self.player_field = [[Square(self.player_panel, i, j) for j in range(FIELD)] for i in range(FIELD)]
+
+        self.opponent_field = list
+        self.opponent_ships = list
+
+        self.player_ships = [Battleship(self.player_panel, self.player_field, ship[0], ship[1], ship[2]) for ship in self.ships_data]
+        self.shuffle_ships(self.player_ships)
 
 
     def shuffle_ships(self, ships: list):
@@ -357,43 +395,18 @@ class Game():
             ship.move('_')
         self.shuffle_button.configure(state="normal")
 
+    def create_opponent_field(self):
+        self.opponent_field = [[Square(self.opponent_panel, i, j) for j in range(FIELD)] for i in range(FIELD)]
+        self.opponent_ships = [Battleship(self.opponent_panel, self.opponent_field, ship[0], ship[1], ship[2], playable=False) for ship in self.ships_data]
+        self.shuffle_ships(self.opponent_ships)
+        # [print(ship.ship_coords) for ship in self.opponent_ships]
+
+
 
 window = Tk()
-game_field = Canvas(width=FIELD*SIZE+1, height=FIELD*SIZE+1, borderwidth=0, highlightthickness=0)
-ships_panel = Canvas(width=(FIELD*SIZE+1)*.5, height=FIELD*SIZE+1, borderwidth=0, highlightthickness=0, bg="lightyellow")
-ships_panel.pack(expand=True, side="right")
-game_field.pack(expand=True)
 
 
-# creating two-dimensional field
-field = []
-for i in range(FIELD):
-    field.append([])
-    for j in range(FIELD):
-        field[i].append(Square(game_field, i, j))
-
-
-# creating ship models
-ships = [
-    Battleship(game_field, 1, 4, 'ship1.png'),
-    # Battleship(game_field, 1, 4),
-
-    Battleship(game_field, 1, 3, 'ship2.png'),
-    Battleship(game_field, 1, 3, 'ship2.png'),
-    Battleship(game_field, 1, 3, 'ship4.png'),
-
-    Battleship(game_field, 1, 2, 'ship3.png'),
-    Battleship(game_field, 1, 2, 'ship3.png'),
-
-    Battleship(game_field, 1, 1, 'ship5.png'),
-    Battleship(game_field, 1, 1, 'ship5.png'),
-    Battleship(game_field, 1, 1, 'ship5.png'),
-    Battleship(game_field, 1, 1, 'ship5.png')
-]
-
-
-game = Game(ships)
-game.shuffle_ships(game.player_ships)
+game = Game(SHIPS_DATA)
 
 
 
