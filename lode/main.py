@@ -138,6 +138,18 @@ class Battleship:
             return False
         return True
 
+    def set_disabled(self):
+        watched_object = self.watched_object()
+        self.root.tag_unbind(watched_object, "<Button-1>")
+        self.root.tag_unbind(watched_object, "<B1-Motion>")
+        self.root.tag_unbind(watched_object, "<ButtonRelease-1>")
+        self.root.tag_unbind(watched_object, "<Double 1>")
+
+        self.set_area(self.width, self.height)
+
+        self.is_disabled = True
+
+
     def watched_object(self):
         if not self.playable: return None
 
@@ -147,7 +159,6 @@ class Battleship:
         elif self.rectangle_object:
             self.watched_object_type = 'rectangle'
             return self.rectangle_object
-
 
     def set_object(self, object, edit=None):
         if self.watched_object_type == 'image':
@@ -327,8 +338,6 @@ class Battleship:
         self.set_area(self.width, self.height)
         if not self.in_restricted_pos: self.x, self.y = self.abs_grab_coords
 
-
-
     def move(self, e): #TODO: Do nové funkce change_pos
         self.rel_grab_coords = ()
 
@@ -356,7 +365,7 @@ class Game():
         self.player_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
         self.opponent_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
         self.shuffle_button = Button(self.ships_panel, text='Automatické rozmístění', command=lambda: self.shuffle_ships(self.player_ships))
-        self.start_button = Button(self.ships_panel, text='Start', command=self.create_opponent_field)
+        self.start_button = Button(self.ships_panel, text='Start', command=self.start_game)
         self.opponent_panel.create_text((FIELD*SIZE/2, FIELD*SIZE/2), text="Nastav si lodě a pak\nklikni na tlačítko Start",
                                         justify="center")
 
@@ -403,11 +412,17 @@ class Game():
         self.shuffle_ships(self.opponent_ships)
         # [print(ship.ship_coords) for ship in self.opponent_ships]
 
+    def start_game(self):
+        self.create_opponent_field()
+        Battleship.last_selected = None
+        for ship in self.player_ships:
+            ship.set_disabled()
+            print(ship.ship_coords)
 
 
 window = Tk()
 def_font = font.nametofont("TkDefaultFont")
-def_font.config(size=15, family='Helvetica', weight='bold')
+def_font.config(size=12, family='Helvetica', weight='bold')
 
 
 game = Game(SHIPS_DATA)
