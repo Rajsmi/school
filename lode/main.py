@@ -404,7 +404,7 @@ class Game():
 
             ship.x, ship.y = x, y
             ship.move('_')
-        self.shuffle_button.configure(state="normal")
+        self.shuffle_button.configure(state="normal")#k
 
     def create_opponent_field(self):
         self.opponent_field = [[Square(self.opponent_panel, i, j) for j in range(FIELD)] for i in range(FIELD)]
