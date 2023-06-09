@@ -1,4 +1,4 @@
-from tkinter import Tk, Canvas, Label, Button
+from tkinter import Tk, Canvas, Label, Button, font
 from random import randint
 import read_settings as config
 from PIL import ImageTk, Image
@@ -352,15 +352,17 @@ class Game():
     def __init__(self, ships_data:list[tuple]):
         self.ships_data = ships_data
 
-        self.ships_panel = Canvas(width=(FIELD * SIZE + 1) * .5, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
+        self.ships_panel = Canvas(width=(FIELD * SIZE + 1) * .5, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0, background='yellow')
         self.player_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
         self.opponent_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
         self.shuffle_button = Button(self.ships_panel, text='Automatické rozmístění', command=lambda: self.shuffle_ships(self.player_ships))
         self.start_button = Button(self.ships_panel, text='Start', command=self.create_opponent_field)
+        self.opponent_panel.create_text((FIELD*SIZE/2, FIELD*SIZE/2), text="Nastav si lodě a pak\nklikni na tlačítko Start",
+                                        justify="center")
 
+        self.player_panel.pack(expand=True, side="left")
+        self.ships_panel.pack(expand=True, side="left")
         self.opponent_panel.pack(expand=True, side="right")
-        self.ships_panel.pack(expand=True, side="right")
-        self.player_panel.pack(expand=True)
         self.shuffle_button.pack(expand=True)
         self.start_button.pack(expand=True)
 
@@ -404,6 +406,8 @@ class Game():
 
 
 window = Tk()
+def_font = font.nametofont("TkDefaultFont")
+def_font.config(size=15, family='Helvetica', weight='bold')
 
 
 game = Game(SHIPS_DATA)
