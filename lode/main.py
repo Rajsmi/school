@@ -1,12 +1,18 @@
 from tkinter import Tk, Canvas, Label, Button, font
 from random import randint, choice
-import read_settings as config
 from PIL import ImageTk, Image
 from math import sqrt
 
-SIZE = int(config.SIZE)
-FIELD = int(config.FIELD)
-COLORS = config.COLORS
+SIZE = 50
+FIELD = 10
+COLORS = {
+    "blank": "white",
+    "zone": "lightgrey",
+    "ship": "grey",
+    "restricted": "lightcoral",
+    "hit": "red",
+    "miss": "lightblue"
+}
 SHIPS_DATA = [
     (1, 4, 'ship1.png'),
     (1, 3, 'ship2.png'),
@@ -19,10 +25,10 @@ SHIPS_DATA = [
     (1, 1, 'ship5.png'),
     (1, 1, 'ship5.png'),
 ]
-SETTINGS_TEXT = 'Nastav si lodě a pak\nklikni na tlačítko Start\n\nOtočit loď můžeš dvojím kliknutím na loď.\n(Loď se otáčí kolem přední části lodi)'
+SETTINGS_TEXT = 'Nastav si lodě a pak\nklikni na tlačítko Nová hra.\n\nOtočit loď můžeš dvojím kliknutím na loď.\n(Loď se otáčí kolem své přední části.)'
 
 class Square:
-    def __init__(self, root, x, y):
+    def __init__(self, root: 'Canvas', x: int, y: int):
         self.x = x
         self.y = y
         self.root = root
@@ -33,8 +39,6 @@ class Square:
 
         self.square = self.root.create_rectangle(x*SIZE, y*SIZE, (x+1)*SIZE, (y+1)*SIZE, fill=COLORS["blank"],
                                               width=1, outline=COLORS["ship"])
-        # self.root.create_text(x*SIZE+25, y*SIZE+25, text=f'{self.x}, {self.y}', anchor="center", font=5)
-
 
     def set_marked(self):
         self.marked = True
@@ -61,7 +65,7 @@ class Square:
         self.zone_all_ships.append(ship)
         return [self.x, self.y]
 
-    def set_restricted(self):
+    def set_restricted_color(self):
         self.set_color(COLORS["restricted"])
 
     def check_restricted(self):
@@ -76,7 +80,7 @@ class Square:
         if not self.ship:
             self.set_color(COLORS["zone"])
 
-    def set_blank(self, ship):
+    def set_blank(self, ship: 'Battleship'):
         if ship in self.ship_all_ships:
             if ship == self.ship: self.ship = None
             self.ship_all_ships.remove(ship)
@@ -91,7 +95,7 @@ class Square:
 
 class Battleship:
     last_selected = None
-    def __init__(self, root, field, width, length, image_path=None, x=0, y=0, playable=True, disabled=False):
+    def __init__(self, root: 'Canvas', field: list, width: int, length: int, image_path: str=None, x=0, y=0, playable=True, disabled=False):
 
         self.root = root
         self.field = field
@@ -204,7 +208,7 @@ class Battleship:
 
         return coords
 
-    def count_area(self, x, y, current_x=None, current_y=None):
+    def count_area(self, x: int, y: int, current_x=None, current_y=None):
         """Count cursor accessible area depending on given parameters and ship width/height
 
         :param x: origin cursor x position
@@ -238,7 +242,7 @@ class Battleship:
 
         return nx, ny
 
-    def set_area(self, width, height, coords:list[int, int]=None):
+    def set_area(self, width: int, height: int, coords:list[int, int]=None):
         if coords is None: coords = self.object_pos(self.watched_object())
 
         # coords of image
@@ -282,7 +286,7 @@ class Battleship:
         for box in self.zone_coords + self.ship_coords:
             if self.field[box[0]][box[1]].check_restricted():
                 for coord in self.zone_coords:
-                    self.field[coord[0]][coord[1]].set_restricted()
+                    self.field[coord[0]][coord[1]].set_restricted_color()
                 self.in_restricted_pos = True
                 break
             self.in_restricted_pos = False
@@ -314,7 +318,7 @@ class Battleship:
 
         if animation:
             for coord in self.zone_coords:
-                self.field[coord[0]][coord[1]].set_restricted()
+                self.field[coord[0]][coord[1]].set_restricted_color()
             self.root.after(250, self.set_area, self.width, self.height, coords)
         else:
             return False
@@ -355,7 +359,7 @@ class Battleship:
         self.set_area(self.width, self.height)
         if not self.in_restricted_pos: self.x, self.y = self.abs_grab_coords
 
-    def move(self, e): #TODO: Do nové funkce change_pos
+    def move(self, e):
         self.rel_grab_coords = ()
 
         for box in self.zone_coords + self.ship_coords:
@@ -375,40 +379,40 @@ class Battleship:
 
 
 class Game():
-    def __init__(self, ships_data:list[tuple]):
+    def __init__(self, ships_data: list[tuple]):
         self.ships_data = ships_data
         self.player_turn = True
-        self.end_game = False
-        self.opponent_wait = 500
+        self.game_ended = False
 
-        self.ships_panel = Canvas(width=(FIELD * SIZE + 1) * .5, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
+        self.ships_panel = Canvas(width=(FIELD * SIZE + 1) * .7, borderwidth=0, highlightthickness=0)
         self.player_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
-        # self.opponent_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0)
         self.opponent_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0, relief="raised")
-        self.opponent_panel.create_text((FIELD*SIZE/2, FIELD*SIZE/2), text=SETTINGS_TEXT,
-                                        justify="center")
-        self.shuffle_button = Button(self.ships_panel, text='Automatické rozmístění', command=lambda: self.shuffle_ships(self.player_ships))
-        self.start_button = Button(self.ships_panel, text='Start', command=self.start_game)
-        self.round_triangle = self.ships_panel.create_polygon(0,0)
+        self.description = self.opponent_panel.create_text((FIELD*SIZE/2, FIELD*SIZE/2), text=SETTINGS_TEXT, justify="center")
+        self.start_button = Button(self.ships_panel, height=5, width=12, bg="lightgreen", text='Nová hra', command=self.start_game)
+        self.shuffle_button = Button(self.ships_panel, height=3, width=12, bg="lightblue", text='Automatické\nrozmístění', command=lambda: self.shuffle_ships(self.player_ships))
+        self.round_triangle = self.ships_panel.create_polygon(0, 0)
+        self.player_text = Label(text="Hráč", font=("CROSSOVER", 25), anchor="center")
+        self.opponent_text = Label(text="Compjůtr", font=("CROSSOVER", 25), anchor="center")
 
+        self.player_text.grid(column=0, row=0)
+        self.player_panel.grid(column=0, row=1, sticky="ew")
+        self.ships_panel.grid(column=1, row=1, sticky="ew", padx=10)
+        self.opponent_panel.grid(column=2, row=1, sticky="ew")
+        self.start_button.grid(column=0,row=0, sticky="ew", pady=5)
+        self.shuffle_button.grid(column=0,row=1, sticky="ew", pady=5)
 
-        self.player_panel.pack(expand=True, side="left")
-        self.ships_panel.pack(expand=True, side="left")
-        self.opponent_panel.pack(expand=True, side="right")
-        self.shuffle_button.pack(expand=True)
-        self.start_button.pack(expand=True)
+        self.player_field = []
+        self.player_ships = []
+        self.player_ships_count = 0
 
         self.opponent_field = []
         self.opponent_ships = []
         self.target_ship = []
+        self.opponent_ships_count = 0
 
-        self.player_field = [[Square(self.player_panel, i, j) for j in range(FIELD)] for i in range(FIELD)]
-        self.player_ships = [Battleship(self.player_panel, self.player_field, ship[0], ship[1], ship[2]) for ship in self.ships_data]
+        self.create_player_field()
 
-        self.shuffle_ships(self.player_ships)
-
-
-    def shuffle_ships(self, ships: list):
+    def shuffle_ships(self, ships: list['Battleship']):
         Battleship.last_selected = None
         self.shuffle_button.configure(state="disabled")
         for ship in ships:
@@ -430,11 +434,22 @@ class Game():
             ship.move('_')
         self.shuffle_button.configure(state="normal")
 
+    def create_player_field(self):
+        self.player_field = [[Square(self.player_panel, i, j) for j in range(FIELD)] for i in range(FIELD)]
+        self.player_ships = [Battleship(self.player_panel, self.player_field, ship[0], ship[1], ship[2]) for ship in
+                             self.ships_data]
+        self.player_ships_count = len(self.player_ships)
+        self.shuffle_ships(self.player_ships)
+
+
     def create_opponent_field(self):
         self.opponent_field = [[Square(self.opponent_panel, i, j) for j in range(FIELD)] for i in range(FIELD)]
         self.opponent_ships = [Battleship(self.opponent_panel, self.opponent_field, ship[0], ship[1], ship[2], playable=False) for ship in self.ships_data]
         self.opponent_panel.bind("<Button-1>", self.player_move)
         self.shuffle_ships(self.opponent_ships)
+        self.opponent_ships_count = len(self.opponent_ships)
+        self.opponent_text.grid(column=2, row=0)
+
 
 
     def change_round_triangle(self, side=50):
@@ -450,18 +465,36 @@ class Game():
                                          panel_width / 2 + pythagoras / 2, panel_height / 2], fill=color)
 
     def start_game(self):
-        self.create_opponent_field()
-        Battleship.last_selected = None
-        for ship in self.player_ships:
-            ship.set_disabled()
-        if not self.player_turn: self.opponent_move()
-        self.start_button.destroy()
-        self.shuffle_button.destroy()
-        self.change_round_triangle()
+        if self.game_ended:
+            self.game_ended = False
+            self.player_turn = not self.player_turn
+            self.shuffle_button.grid()
+            self.create_player_field()
+            [[self.opponent_panel.delete(self.opponent_field[i][j].square) for j in range(FIELD)] for i in range(FIELD)]
+
+            for widget in self.widgets_for_deletion:
+                self.root_for_deletion.delete(widget)
+
+            self.player_text.configure(font=("CROSSOVER", 25))
+            self.opponent_text.configure(font=("CROSSOVER", 25))
+
+            self.description = self.opponent_panel.create_text((FIELD * SIZE / 2, FIELD * SIZE / 2), text=SETTINGS_TEXT, justify="center")
+        else:
+            self.opponent_panel.delete(self.description)
+            self.create_opponent_field()
+            Battleship.last_selected = None
+            for ship in self.player_ships:
+                ship.set_disabled()
+            if not self.player_turn: self.opponent_move()
+            self.start_button.grid_remove()
+            self.shuffle_button.grid_remove()
+            self.change_round_triangle()
+            self.change_header_text()
 
     def activate_field_outline(self):
         res_rec = self.opponent_panel.create_rectangle(0, 0, FIELD * SIZE, FIELD * SIZE, width=20, outline="red")
-        self.opponent_panel.after(self.opponent_wait // 4, lambda: self.opponent_panel.delete(res_rec))
+        self.opponent_panel.after(300, lambda: self.opponent_panel.delete(res_rec))
+
 
     def player_move(self, e):
         x, y = e.x // SIZE, e.y // SIZE
@@ -481,11 +514,11 @@ class Game():
                 for coord in square.ship.zone_coords:
                     self.opponent_field[coord[0]][coord[1]].set_marked()
                     self.opponent_field[coord[0]][coord[1]].set_miss_color()
+                self.opponent_ships_count -= 1
 
         else:
             self.player_turn = False
             square.set_miss_color()
-
 
         self.end_turn()
 
@@ -501,11 +534,9 @@ class Game():
                         direction = choice([-1, 1])
                         coord_index = randint(0, 1)
                     coords[coord_index] += direction
-                    print(coords)
                     if not self.player_field[coords[0]][coords[1]].marked:
                         break
                 x, y = coords
-                print()
 
             if len(self.target_ship) > 1:
                 dx = self.target_ship[1].x - self.target_ship[0].x
@@ -533,41 +564,100 @@ class Game():
 
                 x, y = coords
 
-
-
         else:
             x, y = randint(0, FIELD-1), randint(0, FIELD-1)
             while self.player_field[x][y].marked:
                 x, y = randint(0, FIELD-1), randint(0, FIELD-1)
 
-
         square = self.player_field[x][y]
         square.set_marked()
 
         if square.ship:
-            square.set_hit_color()
+            square.set_restricted_color()
             square.ship.set_hit([x, y])
 
             if square.ship.sunken:
                 for coord in square.ship.zone_coords:
                     self.player_field[coord[0]][coord[1]].set_marked()
-                    self.player_field[coord[0]][coord[1]].set_miss_color()
+                    self.player_field[coord[0]][coord[1]].set_zone_color()
                 self.target_ship = []
+                self.player_ships_count -= 1
             else:
                 self.target_ship.append(square)
         else:
-            square.set_miss_color()
+            square.set_zone_color()
             self.player_turn = True
 
         self.end_turn()
 
+    def change_header_text(self):
+        if self.player_turn:
+            self.player_text.configure(font=("CROSSOVER", 25))
+            self.opponent_text.configure(font=("CROSSOVER", 10))
+        else:
+            self.player_text.configure(font=("CROSSOVER", 10))
+            self.opponent_text.configure(font=("CROSSOVER", 25))
+
     def end_turn(self):
-        if self.end_game == True:
-            return # TODO: Spustit funkci pro ukončení hry
+        if self.player_ships_count == 0 or self.opponent_ships_count == 0:
+            return self.end_game()
 
         self.change_round_triangle()
         if not self.player_turn:
-            self.player_panel.after(self.opponent_wait, self.opponent_move)
+            self.player_panel.after(randint(4, 20)*100, self.opponent_move)
+
+        self.change_header_text()
+
+    def show_opponent_field(self):
+        for i in range(FIELD):
+            for j in range(FIELD):
+                square = self.opponent_field[i][j]
+                if square.marked and square.ship:
+                    square.set_hit_color()
+                elif square.marked and not square.ship:
+                    square.set_zone_color()
+                elif not square.marked and square.ship:
+                    square.set_restricted_color()
+                else:
+                    square.set_ship_color()
+
+    def show_player_field(self):
+        for i in range(FIELD):
+            for j in range(FIELD):
+                square = self.player_field[i][j]
+                if square.marked and square.ship:
+                    square.set_restricted_color()
+                elif not square.marked and square.ship:
+                    square.set_ship_color()
+                else:
+                    square.set_zone_color()
+
+    def end_game(self):
+        self.opponent_panel.unbind("<Button-1>")
+        self.ships_panel.delete(self.round_triangle)
+        root_for_deletion = None
+        widgets_for_deletion = []
+
+        if self.player_ships_count == 0: # player loses
+            rec = self.player_panel.create_rectangle(0, (FIELD*SIZE)//2-(FIELD*SIZE)//6, FIELD*SIZE, (FIELD*SIZE)//2+(FIELD*SIZE)//6, fill="red3", width=0)
+            text = self.player_panel.create_text((FIELD*SIZE)//2, (FIELD*SIZE)//2, text="PROHRÁL JSI", anchor="center", font=("CROSSOVER", 50), fill="white")
+            root_for_deletion = self.player_panel
+            widgets_for_deletion = [rec, text]
+
+        elif self.opponent_ships_count == 0: # opponent loses
+            rec = self.opponent_panel.create_rectangle(0, (FIELD*SIZE)//2-(FIELD*SIZE)//6, FIELD*SIZE, (FIELD*SIZE)//2+(FIELD*SIZE)//6, fill="green4", width=0)
+            text = self.opponent_panel.create_text((FIELD*SIZE)//2, (FIELD*SIZE)//2, text="VYHRÁL JSI", anchor="center", font=("CROSSOVER", 50), fill="white")
+            root_for_deletion = self.opponent_panel
+            widgets_for_deletion = [rec, text]
+
+        self.root_for_deletion = root_for_deletion
+        self.widgets_for_deletion = widgets_for_deletion
+
+        self.player_panel.after(1000, self.show_opponent_field)
+        self.opponent_panel.after(1000, self.show_player_field)
+
+        self.game_ended = True
+        self.ships_panel.after(1500, self.start_button.grid)
 
 
 
@@ -577,14 +667,10 @@ def_font.config(size=12, family='Helvetica', weight='bold')
 
 
 game = Game(SHIPS_DATA)
+# A takhle to dopadá, když si všechno naflákám do tříd..
 
 
 window.mainloop()
 
-# ship0 - 5*2
-# ship1 - 6
-# ship2 - 5
-# ship3 - 4
-# ship4 - 4
-# ship5 - 3
+
 
