@@ -389,7 +389,7 @@ class Game():
         self.opponent_panel = Canvas(width=FIELD * SIZE + 1, height=FIELD * SIZE + 1, borderwidth=0, highlightthickness=0, relief="raised")
         self.description = self.opponent_panel.create_text((FIELD*SIZE/2, FIELD*SIZE/2), text=SETTINGS_TEXT, justify="center")
         self.start_button = Button(self.ships_panel, height=5, width=12, bg="lightgreen", text='Nová hra', command=self.start_game)
-        self.shuffle_button = Button(self.ships_panel, height=3, width=12, bg="lightblue", text='Automatické\nrozmístění', command=lambda: self.shuffle_ships(self.player_ships))
+        self.shuffle_button = Button(self.ships_panel, height=3, width=12, bg="lightblue", text='Náhodné\nrozmístění', command=lambda: self.shuffle_ships(self.player_ships))
         self.round_triangle = self.ships_panel.create_polygon(0, 0)
         self.player_text = Label(text="Hráč", font=("CROSSOVER", 25), anchor="center")
         self.opponent_text = Label(text="Compjůtr", font=("CROSSOVER", 25), anchor="center")
